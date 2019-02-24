@@ -1,21 +1,11 @@
-// Get ESP8266 going with Arduino IDE
-// - https://github.com/esp8266/Arduino#installing-with-boards-manager
-// Required libraries (sketch -> include library -> manage libraries)
-// - PubSubClient by Nick ‘O Leary
-// - DHT sensor library by Adafruit
 
+#include <FS.h>
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-
-#define wifi_ssid "SSID"
-#define wifi_password "PWD"
-
-#define mqtt_server "iotserver"
-#define mqtt_user ""
-#define mqtt_password ""
-
-#define temperature_topic "house/livingroom/temperature"
+#include <DNSServer.h>
+#include <WiFiManager.h> 
+#include <ArduinoJson.h>
 
 // which analog pin to connect
 #define THERMISTORPIN A0         
@@ -35,20 +25,68 @@ uint16_t samples[NUMSAMPLES];
 WiFiClient espClient;
 PubSubClient client(espClient);
 
+const char* clientId;
+char* mqtt_server;
+char* mqtt_port;
+char* mqtt_user;
+char* mqtt_password;
+char* mqtt_topic;
+
 void setup_wifi() {
-  delay(10);
-  // We start by connecting to a WiFi network
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(wifi_ssid);
+  
+  //read configuration from FS json
+  Serial.println("mounting FS...");
 
-  WiFi.begin(wifi_ssid, wifi_password);
+  if (SPIFFS.begin()) {
+    Serial.println("mounted file system");
+    if (SPIFFS.exists("/config.json")) {
+      //file exists, reading and loading
+      Serial.println("reading config file");
+      File configFile = SPIFFS.open("/config.json", "r");
+      if (configFile) {
+        Serial.println("opened config file");
+        size_t size = configFile.size();
+        // Allocate a buffer to store contents of the file.
+        std::unique_ptr<char[]> buf(new char[size]);
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+        configFile.readBytes(buf.get(), size);
+        DynamicJsonBuffer jsonBuffer;
+        JsonObject& json = jsonBuffer.parseObject(buf.get());
+        json.printTo(Serial);
+        if (json.success()) {
+          Serial.println("\nparsed json");
+
+          strcpy(mqtt_server, json["mqtt_server"]);
+          strcpy(mqtt_port, json["mqtt_port"]);
+          strcpy(mqtt_user, json["mqtt_user"]);
+          strcpy(mqtt_password, json["mqtt_password"]);
+          strcpy(mqtt_topic, json["mqqt_topic"]);
+
+        } else {
+          Serial.println("failed to load json config");
+        }
+        configFile.close();
+      }
+    }
+  } else {
+    Serial.println("failed to mount FS");
   }
+  //end read
+  clientId = String("IoT" + ESP.getChipId()).c_str();
+  WiFiManagerParameter custom_mqtt_server("server", "mqtt server", mqtt_server, 64);
+  WiFiManagerParameter custom_mqtt_port("port", "mqtt port", mqtt_port, 6);
+  WiFiManagerParameter custom_mqtt_user("user", "mqtt user", mqtt_user, 32);
+  WiFiManagerParameter custom_mqtt_password("password", "mqtt password", mqtt_password, 32);
+  WiFiManagerParameter custom_mqtt_topic("topic", "mqtt topic", mqtt_topic, 128);
 
+  WiFiManager wifiManager;
+  wifiManager.addParameter(&custom_mqtt_server);
+  wifiManager.addParameter(&custom_mqtt_port);
+  wifiManager.addParameter(&custom_mqtt_user);
+  wifiManager.addParameter(&custom_mqtt_password);
+  wifiManager.addParameter(&custom_mqtt_topic);
+
+  wifiManager.autoConnect(clientId);
   Serial.println("");
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
@@ -62,7 +100,7 @@ void reconnect() {
     // Attempt to connect
     // If you do not want to use a username and password, change next line to
     // if (client.connect("ESP8266Client")) {
-    if (client.connect("ESP8266Client", mqtt_user, mqtt_password)) {
+    if (client.connect(clientId, mqtt_user, mqtt_password)) {
       Serial.println("connected");
     } else {
       Serial.print("failed, rc=");
@@ -70,6 +108,9 @@ void reconnect() {
       Serial.println(" try again in 5 seconds");
       // Wait 5 seconds before retrying
       delay(5000);
+      WiFiManager wifiManager;
+      wifiManager.resetSettings();
+
     }
   }
 }
@@ -143,7 +184,7 @@ void loop() {
       Serial.print("New temperature:");
       Serial.println(String(temp).c_str());
       String tempData = "temperature,location=bogenhuset,room=livingroom temperature=" + String(temp); 
-      client.publish(temperature_topic, tempData.c_str(), true);
+      client.publish(mqtt_topic, tempData.c_str(), true);
     }
     newTemp = 0;
     tempCount = 0;
