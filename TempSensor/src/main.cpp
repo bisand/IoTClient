@@ -77,6 +77,14 @@ void handleRoot() {
   server.send(200, "text/plain", "Current temperature: " + String(tmp));
 }
 
+void handleReset(){
+  Serial.println("Reset WiFi settings.");
+  ESP.eraseConfig();
+  delay(3000);
+  ESP.reset();
+  delay(1000);
+}
+
 void handleNotFound()
 {
   String message = "File Not Found\n\n";
@@ -147,6 +155,7 @@ void setup_wifi()
   }
   //end read
   clientId = String("IoT" + ESP.getChipId()).c_str();
+  Serial.println("Client Id: " + String(clientId));
   WiFiManagerParameter custom_mqtt_server("server", "MQTT server", mqtt_server, 64);
   WiFiManagerParameter custom_mqtt_port("port", "MQTT port", mqtt_port, 6);
   WiFiManagerParameter custom_mqtt_user("user", "MQTT user", mqtt_user, 32);
@@ -253,13 +262,7 @@ void setup()
 
   server.on("/", handleRoot);
 
-  server.on("/reset", []() {
-    Serial.println("Reset WiFi settings.");
-    ESP.eraseConfig();
-    delay(3000);
-    ESP.reset();
-    delay(1000);
-  });
+  server.on("/reset", handleReset);
 
   server.onNotFound(handleNotFound);
 
