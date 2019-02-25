@@ -28,7 +28,7 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 ESP8266WebServer server(80);
 
-const char *clientId;
+String clientId;
 char *mqtt_server = "";
 char *mqtt_port = "";
 char *mqtt_user = "";
@@ -154,9 +154,12 @@ void setup_wifi()
     Serial.println("failed to mount FS");
   }
   //end read
-  clientId = String("IoT" + ESP.getChipId()).c_str();
+  String mac = WiFi.macAddress();
+  mac.replace(":", "");
+  clientId = "IoT_" + mac;
   Serial.println("Chip Id:   " + String(ESP.getChipId()));
-  Serial.println("Client Id: " + String(clientId));
+  Serial.println("Client Id: " + clientId);
+  Serial.println("MAC:       " + mac);
   WiFiManagerParameter custom_mqtt_server("server", "MQTT server", mqtt_server, 64);
   WiFiManagerParameter custom_mqtt_port("port", "MQTT port", mqtt_port, 6);
   WiFiManagerParameter custom_mqtt_user("user", "MQTT user", mqtt_user, 32);
@@ -172,7 +175,7 @@ void setup_wifi()
   wifiManager.addParameter(&custom_mqtt_topic);
   wifiManager.addParameter(&custom_temp_adjustment);
 
-  wifiManager.autoConnect(clientId);
+  wifiManager.autoConnect(clientId.c_str());
 
   strcpy(mqtt_server, custom_mqtt_server.getValue());
   strcpy(mqtt_port, custom_mqtt_port.getValue());
@@ -225,7 +228,7 @@ void reconnect()
     // Attempt to connect
     // If you do not want to use a username and password, change next line to
     // if (client.connect("ESP8266Client")) {
-    if (client.connect(clientId, mqtt_user, mqtt_password))
+    if (client.connect(clientId.c_str(), mqtt_user, mqtt_password))
     {
       Serial.println("connected");
     }
