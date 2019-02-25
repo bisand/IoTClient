@@ -250,8 +250,10 @@ void setup()
 
   server.on("/reset", []() {
     Serial.println("Reset WiFi settings.");
-    wifiManager.resetSettings();
+    ESP.eraseConfig();
+    delay(3000);
     ESP.reset();
+    delay(1000);
   });
 
   server.onNotFound(handleNotFound);
