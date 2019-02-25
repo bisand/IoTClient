@@ -155,6 +155,7 @@ void setup_wifi()
   }
   //end read
   clientId = String("IoT" + ESP.getChipId()).c_str();
+  Serial.println("Chip Id:   " + String(ESP.getChipId()));
   Serial.println("Client Id: " + String(clientId));
   WiFiManagerParameter custom_mqtt_server("server", "MQTT server", mqtt_server, 64);
   WiFiManagerParameter custom_mqtt_port("port", "MQTT port", mqtt_port, 6);
