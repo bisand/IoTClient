@@ -246,7 +246,7 @@ void setup_wifi()
 
   String mac = WiFi.macAddress();
   mac.replace(":", "");
-  clientId = "IoT" + mac.substring(6);
+  clientId = "IoT_" + mac.substring(6);
   Serial.println("Chip Id:   " + String(ESP.getChipId()));
   Serial.println("Client Id: " + clientId);
   Serial.println("MAC:       " + mac);
