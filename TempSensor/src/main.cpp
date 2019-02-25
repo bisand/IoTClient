@@ -70,11 +70,11 @@ void setup_wifi()
   if (SPIFFS.begin())
   {
     Serial.println("mounted file system");
-    if (SPIFFS.exists("/config.json"))
+    if (SPIFFS.exists("/cfg.json"))
     {
       //file exists, reading and loading
       Serial.println("reading config file");
-      File configFile = SPIFFS.open("/config.json", "r");
+      File configFile = SPIFFS.open("/cfg.json", "r");
       if (configFile)
       {
         Serial.println("opened config file");
@@ -152,7 +152,7 @@ void setup_wifi()
     json["mqtt_password"] = mqtt_password;
     json["mqtt_topic"] = mqtt_topic;
 
-    File configFile = SPIFFS.open("/config.json", "w");
+    File configFile = SPIFFS.open("/cfg.json", "w");
     if (!configFile)
     {
       Serial.println("failed to open config file for writing");
