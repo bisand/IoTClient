@@ -29,14 +29,14 @@ PubSubClient client(espClient);
 ESP8266WebServer server(80);
 
 String clientId;
-char *mqtt_server = (char *)"";
-char *mqtt_port = (char *)"1883";
-char *mqtt_user = (char *)"";
-char *mqtt_password = (char *)"";
-char *mqtt_topic = (char *)"home/livingroom/temperature";
-char *event_location = (char *)"home";
-char *event_place = (char *)"livingroom";
-char *event_type = (char *)"temperature";
+String mqtt_server = "";
+String mqtt_port = "1883";
+String mqtt_user = "";
+String mqtt_password = "";
+String mqtt_topic = "home/livingroom/temperature";
+String event_location = "home";
+String event_place = "livingroom";
+String event_type = "temperature";
 float event_adjustment = 0.0;
 bool shouldSaveConfig = false;
 
@@ -105,7 +105,7 @@ void publishEvent()
       Serial.print("New temperature:");
       Serial.println(String(temp).c_str());
       String tempData = String(event_type)+",location="+String(event_location)+",place="+String(event_place)+" "+String(event_type)+"=" + String(temp);
-      client.publish(mqtt_topic, tempData.c_str(), true);
+      client.publish(mqtt_topic.c_str(), tempData.c_str(), true);
     }
     newTemp = 0;
     tempCount = 0;
@@ -147,15 +147,15 @@ void readConfigFile(){
         {
           Serial.println("\nparsed json");
 
-          strcpy(mqtt_server, json["mqtt_server"]);
-          strcpy(mqtt_port, json["mqtt_port"]);
-          strcpy(mqtt_user, json["mqtt_user"]);
-          strcpy(mqtt_password, json["mqtt_password"]);
-          strcpy(mqtt_topic, json["mqqt_topic"]);
+          mqtt_server = json.get<String>("mqtt_server");
+          mqtt_port = json.get<String>("mqtt_port");
+          mqtt_user = json.get<String>("mqtt_user");
+          mqtt_password = json.get<String>("mqtt_password");
+          mqtt_topic = json.get<String>("mqtt_topic");
           event_adjustment = json.get<float>("event_adjustment");
-          strcpy(event_type, json["event_type"]);
-          strcpy(event_location, json["event_location"]);
-          strcpy(event_place, json["event_place"]);
+          event_type = json.get<String>("event_type");
+          event_location = json.get<String>("event_location");
+          event_place = json.get<String>("event_place");
         }
         else
         {
@@ -245,20 +245,20 @@ void setup_wifi()
 
   String mac = WiFi.macAddress();
   mac.replace(":", "");
-  clientId = "IoT_" + mac;
+  clientId = "IoT" + mac.substring(6);
   Serial.println("Chip Id:   " + String(ESP.getChipId()));
   Serial.println("Client Id: " + clientId);
   Serial.println("MAC:       " + mac);
 
-  WiFiManagerParameter custom_mqtt_server("server", "MQTT server", mqtt_server, 64);
-  WiFiManagerParameter custom_mqtt_port("port", "MQTT port", mqtt_port, 6);
-  WiFiManagerParameter custom_mqtt_user("user", "MQTT user", mqtt_user, 32);
-  WiFiManagerParameter custom_mqtt_password("password", "MQTT password", mqtt_password, 32);
-  WiFiManagerParameter custom_mqtt_topic("topic", "MQTT topic", mqtt_topic, 64);
+  WiFiManagerParameter custom_mqtt_server("server", "MQTT server", mqtt_server.c_str(), 64);
+  WiFiManagerParameter custom_mqtt_port("port", "MQTT port", mqtt_port.c_str(), 6);
+  WiFiManagerParameter custom_mqtt_user("user", "MQTT user", mqtt_user.c_str(), 32);
+  WiFiManagerParameter custom_mqtt_password("password", "MQTT password", mqtt_password.c_str(), 32);
+  WiFiManagerParameter custom_mqtt_topic("topic", "MQTT topic", mqtt_topic.c_str(), 128);
   WiFiManagerParameter custom_event_adjustment("adjustment", "Temp adjustment", String(event_adjustment).c_str(), 6);
-  WiFiManagerParameter custom_event_type("eventType", "Event type", event_type, 64);
-  WiFiManagerParameter custom_event_location("eventLocation", "Event location", event_location, 64);
-  WiFiManagerParameter custom_event_place("eventPlace", "Event place", event_place, 64);
+  WiFiManagerParameter custom_event_type("eventType", "Event type", event_type.c_str(), 64);
+  WiFiManagerParameter custom_event_location("eventLocation", "Event location", event_location.c_str(), 64);
+  WiFiManagerParameter custom_event_place("eventPlace", "Event place", event_place.c_str(), 64);
 
   wifiManager.setSaveConfigCallback(SaveConfigCallback);
   wifiManager.addParameter(&custom_mqtt_server);
@@ -273,14 +273,14 @@ void setup_wifi()
 
   wifiManager.autoConnect(clientId.c_str());
 
-  strcpy(mqtt_server, custom_mqtt_server.getValue());
-  strcpy(mqtt_port, custom_mqtt_port.getValue());
-  strcpy(mqtt_user, custom_mqtt_user.getValue());
-  strcpy(mqtt_password, custom_mqtt_password.getValue());
-  strcpy(mqtt_topic, custom_mqtt_topic.getValue());
-  strcpy(event_type, custom_event_type.getValue());
-  strcpy(event_location, custom_event_location.getValue());
-  strcpy(event_place, custom_event_place.getValue());
+  mqtt_server = custom_mqtt_server.getValue();
+  mqtt_port = custom_mqtt_port.getValue();
+  mqtt_user = custom_mqtt_user.getValue();
+  mqtt_password = custom_mqtt_password.getValue();
+  mqtt_topic = custom_mqtt_topic.getValue();
+  event_type = custom_event_type.getValue();
+  event_location = custom_event_location.getValue();
+  event_place = custom_event_place.getValue();
   event_adjustment = String(custom_event_adjustment.getValue()).toFloat();
 
   Serial.println("");
@@ -309,7 +309,7 @@ void reconnect()
     // Attempt to connect
     // If you do not want to use a username and password, change next line to
     // if (client.connect("ESP8266Client")) {
-    if (client.connect(clientId.c_str(), mqtt_user, mqtt_password))
+    if (client.connect(clientId.c_str(), mqtt_user.c_str(), mqtt_password.c_str()))
     {
       Serial.println("connected");
     }
@@ -337,7 +337,7 @@ void setup()
 {
   Serial.begin(115200);
   setup_wifi();
-  client.setServer(mqtt_server, (int)mqtt_port);
+  client.setServer(mqtt_server.c_str(), mqtt_port.toInt());
 
   server.on("/", HTTP_GET, handleRootGET);
   server.on("/", HTTP_POST, handleRootPOST);
