@@ -151,7 +151,7 @@ void setup_wifi()
   WiFiManagerParameter custom_mqtt_user("user", "MQTT user", mqtt_user, 32);
   WiFiManagerParameter custom_mqtt_password("password", "MQTT password", mqtt_password, 32);
   WiFiManagerParameter custom_mqtt_topic("topic", "MQTT topic", mqtt_topic, 64);
-  WiFiManagerParameter custom_temp_adjustment("topic", "Temp adjustment", String(tempAdjustment).c_str(), 6);
+  WiFiManagerParameter custom_temp_adjustment("temp", "Temp adjustment", String(tempAdjustment).c_str(), 6);
 
   wifiManager.setSaveConfigCallback(SaveConfigCallback);
   wifiManager.addParameter(&custom_mqtt_server);
