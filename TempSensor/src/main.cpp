@@ -214,6 +214,7 @@ void handleRootPOST() {
 
 void handleReset(){
   Serial.println("Reset WiFi settings.");
+  server.send(200, "text/html", "<html><span>The IoT device will now reset. Please connect to internal WiFi hotspot to reconfigure.</span></html>");
   ESP.eraseConfig();
   delay(3000);
   ESP.reset();
