@@ -30,12 +30,15 @@ ESP8266WebServer server(80);
 
 String clientId;
 char *mqtt_server = "";
-char *mqtt_port = "";
+char *mqtt_port = "1883";
 char *mqtt_user = "";
 char *mqtt_password = "";
-char *mqtt_topic = "";
+char *mqtt_topic = "home/livingroom/temperature";
+char *event_location = "home";
+char *event_place = "livingroom";
+char *event_type = "temperature";
+float event_adjustment = 0.0;
 bool shouldSaveConfig = false;
-float tempAdjustment = 0.0;
 
 float readTemp()
 {
@@ -69,12 +72,12 @@ float readTemp()
   steinhart = 1.0 / steinhart;                      // Invert
   steinhart -= 273.15;                              // convert to C
 
-  return steinhart + tempAdjustment;
+  return steinhart + event_adjustment;
 }
 
 void handleRoot() {
   float tmp = readTemp();
-  server.send(200, "text/plain", "Current temperature: " + String(tmp));
+  server.send(200, "text/html", "<html><span>Temperature: "+String(tmp)+"</span><form action=\"/adjusttemp\" method=\"POST\">Adjustment: <input type=\"input\" value=\""+String(event_adjustment)+"\"/><br/><input type=\"submit\" value=\"Save\"/></form></html>");
 }
 
 void handleReset(){
@@ -140,6 +143,10 @@ void setup_wifi()
           strcpy(mqtt_user, json["mqtt_user"]);
           strcpy(mqtt_password, json["mqtt_password"]);
           strcpy(mqtt_topic, json["mqqt_topic"]);
+          event_adjustment = json.get<float>("event_adjustment");
+          strcpy(event_type, json["event_type"]);
+          strcpy(event_location, json["event_location"]);
+          strcpy(event_place, json["event_place"]);
         }
         else
         {
@@ -165,7 +172,10 @@ void setup_wifi()
   WiFiManagerParameter custom_mqtt_user("user", "MQTT user", mqtt_user, 32);
   WiFiManagerParameter custom_mqtt_password("password", "MQTT password", mqtt_password, 32);
   WiFiManagerParameter custom_mqtt_topic("topic", "MQTT topic", mqtt_topic, 64);
-  WiFiManagerParameter custom_temp_adjustment("temp", "Temp adjustment", String(tempAdjustment).c_str(), 6);
+  WiFiManagerParameter custom_event_adjustment("adjustment", "Temp adjustment", String(event_adjustment).c_str(), 6);
+  WiFiManagerParameter custom_event_type("eventType", "Event type", event_type, 64);
+  WiFiManagerParameter custom_event_location("eventLocation", "Event location", event_location, 64);
+  WiFiManagerParameter custom_event_place("eventPlace", "Event place", event_place, 64);
 
   wifiManager.setSaveConfigCallback(SaveConfigCallback);
   wifiManager.addParameter(&custom_mqtt_server);
@@ -173,7 +183,10 @@ void setup_wifi()
   wifiManager.addParameter(&custom_mqtt_user);
   wifiManager.addParameter(&custom_mqtt_password);
   wifiManager.addParameter(&custom_mqtt_topic);
-  wifiManager.addParameter(&custom_temp_adjustment);
+  wifiManager.addParameter(&custom_event_location);
+  wifiManager.addParameter(&custom_event_place);
+  wifiManager.addParameter(&custom_event_type);
+  wifiManager.addParameter(&custom_event_adjustment);
 
   wifiManager.autoConnect(clientId.c_str());
 
@@ -182,7 +195,10 @@ void setup_wifi()
   strcpy(mqtt_user, custom_mqtt_user.getValue());
   strcpy(mqtt_password, custom_mqtt_password.getValue());
   strcpy(mqtt_topic, custom_mqtt_topic.getValue());
-  tempAdjustment = String(custom_mqtt_topic.getValue()).toFloat();
+  strcpy(event_type, custom_event_type.getValue());
+  strcpy(event_location, custom_event_location.getValue());
+  strcpy(event_place, custom_event_place.getValue());
+  event_adjustment = String(custom_event_adjustment.getValue()).toFloat();
 
   Serial.println("");
   Serial.println("WiFi connected");
@@ -204,6 +220,10 @@ void setup_wifi()
     json["mqtt_user"] = mqtt_user;
     json["mqtt_password"] = mqtt_password;
     json["mqtt_topic"] = mqtt_topic;
+    json["event_location"] = event_location;
+    json["event_place"] = event_place;
+    json["event_type"] = event_type;
+    json["event_adjustment"] = event_adjustment;
 
     File configFile = SPIFFS.open("/cfg.json", "w");
     if (!configFile)
@@ -297,7 +317,7 @@ void publishTemperature()
       temp = newTemp;
       Serial.print("New temperature:");
       Serial.println(String(temp).c_str());
-      String tempData = "temperature,location=bogenhuset,room=livingroom temperature=" + String(temp);
+      String tempData = "temperature,location="+String(event_location)+",place="+String(event_place)+" "+String(event_type)+"=" + String(temp);
       client.publish(mqtt_topic, tempData.c_str(), true);
     }
     newTemp = 0;
