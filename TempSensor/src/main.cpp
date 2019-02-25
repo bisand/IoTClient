@@ -88,7 +88,7 @@ bool checkBound(float newValue, float prevValue, float maxDiff)
          (newValue < prevValue - maxDiff || newValue > prevValue + maxDiff);
 }
 
-void publishTemperature()
+void publishEvent()
 {
   newTemp = newTemp + readEvent();
   tempCount++;
@@ -104,7 +104,7 @@ void publishTemperature()
       temp = newTemp;
       Serial.print("New temperature:");
       Serial.println(String(temp).c_str());
-      String tempData = "temperature,location="+String(event_location)+",place="+String(event_place)+" "+String(event_type)+"=" + String(temp);
+      String tempData = String(event_type)+",location="+String(event_location)+",place="+String(event_place)+" "+String(event_type)+"=" + String(temp);
       client.publish(mqtt_topic, tempData.c_str(), true);
     }
     newTemp = 0;
@@ -358,5 +358,5 @@ void loop()
   }
   client.loop();
 
-  publishTemperature();
+  publishEvent();
 }
