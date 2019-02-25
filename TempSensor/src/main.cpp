@@ -40,7 +40,7 @@ char *event_type = (char *)"temperature";
 float event_adjustment = 0.0;
 bool shouldSaveConfig = false;
 
-float readTemp()
+float readEvent()
 {
   uint8_t i;
   float average;
@@ -75,8 +75,45 @@ float readTemp()
   return steinhart + event_adjustment;
 }
 
+long lastMsg = 0;
+float temp = 0.0;
+float hum = 0.0;
+float diff = 0.1;
+float newTemp = 0.0;
+int tempCount = 0;
+
+bool checkBound(float newValue, float prevValue, float maxDiff)
+{
+  return !isnan(newValue) &&
+         (newValue < prevValue - maxDiff || newValue > prevValue + maxDiff);
+}
+
+void publishTemperature()
+{
+  newTemp = newTemp + readEvent();
+  tempCount++;
+
+  long now = millis();
+  if (now - lastMsg > 5000)
+  {
+    lastMsg = now;
+
+    newTemp = newTemp / (float)tempCount;
+    if (checkBound(newTemp, temp, diff))
+    {
+      temp = newTemp;
+      Serial.print("New temperature:");
+      Serial.println(String(temp).c_str());
+      String tempData = "temperature,location="+String(event_location)+",place="+String(event_place)+" "+String(event_type)+"=" + String(temp);
+      client.publish(mqtt_topic, tempData.c_str(), true);
+    }
+    newTemp = 0;
+    tempCount = 0;
+  }
+}
+
 void sendIndexPage(){
-  float tmp = readTemp();
+  float tmp = readEvent();
   server.send(200, "text/html", "<html><span>Temperature: "+String(tmp)+"</span><form action=\"/\" method=\"POST\">Adjustment: <input type=\"input\" name=\"event_adjustment\" value=\""+String(event_adjustment)+"\"/><br/><input type=\"submit\" value=\"Save\"/></form></html>");
 }
 
@@ -296,12 +333,6 @@ void reconnect()
   }
 }
 
-bool checkBound(float newValue, float prevValue, float maxDiff)
-{
-  return !isnan(newValue) &&
-         (newValue < prevValue - maxDiff || newValue > prevValue + maxDiff);
-}
-
 void setup()
 {
   Serial.begin(115200);
@@ -315,37 +346,6 @@ void setup()
 
   server.begin();
   Serial.println("HTTP server started");
-}
-
-long lastMsg = 0;
-float temp = 0.0;
-float hum = 0.0;
-float diff = 0.1;
-float newTemp = 0.0;
-int tempCount = 0;
-
-void publishTemperature()
-{
-  newTemp = newTemp + readTemp();
-  tempCount++;
-
-  long now = millis();
-  if (now - lastMsg > 5000)
-  {
-    lastMsg = now;
-
-    newTemp = newTemp / (float)tempCount;
-    if (checkBound(newTemp, temp, diff))
-    {
-      temp = newTemp;
-      Serial.print("New temperature:");
-      Serial.println(String(temp).c_str());
-      String tempData = "temperature,location="+String(event_location)+",place="+String(event_place)+" "+String(event_type)+"=" + String(temp);
-      client.publish(mqtt_topic, tempData.c_str(), true);
-    }
-    newTemp = 0;
-    tempCount = 0;
-  }
 }
 
 void loop()
