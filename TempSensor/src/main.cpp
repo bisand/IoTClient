@@ -73,7 +73,8 @@ float readTemp()
 }
 
 void handleRoot() {
-  server.send(200, "text/plain", "Current temperature: ");
+  float tmp = readTemp();
+  server.send(200, "text/plain", "Current temperature: " + String(tmp));
 }
 
 void handleNotFound()
