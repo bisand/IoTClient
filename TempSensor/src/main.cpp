@@ -79,42 +79,6 @@ void sendIndexPage(){
   float tmp = readTemp();
   server.send(200, "text/html", "<html><span>Temperature: "+String(tmp)+"</span><form action=\"/\" method=\"POST\">Adjustment: <input type=\"input\" name=\"event_adjustment\" value=\""+String(event_adjustment)+"\"/><br/><input type=\"submit\" value=\"Save\"/></form></html>");
 }
-void handleRootGET() {
-  sendIndexPage();
-}
-
-void handleRootPOST() {
-  if( !server.hasArg("event_adjustment") || server.arg("event_adjustment") == NULL) {
-    server.send(400, "text/plain", "400: Invalid Request");
-    return;
-  }
-  event_adjustment = server.arg("event_adjustment").toFloat();
-  sendIndexPage();
-}
-
-void handleReset(){
-  Serial.println("Reset WiFi settings.");
-  ESP.eraseConfig();
-  delay(3000);
-  ESP.reset();
-  delay(1000);
-}
-
-void handleNotFound()
-{
-  String message = "File Not Found\n\n";
-  message += "URI: ";
-  message += server.uri();
-  message += "\nMethod: ";
-  message += (server.method() == HTTP_GET) ? "GET" : "POST";
-  message += "\nArguments: ";
-  message += server.args();
-  message += "\n";
-  for (uint8_t i = 0; i < server.args(); i++) {
-    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
-  }
-  server.send(404, "text/plain", message);
-}
 
 void SaveConfigCallback()
 {
@@ -122,11 +86,7 @@ void SaveConfigCallback()
   shouldSaveConfig = true;
 }
 
-void setup_wifi()
-{
-  //read configuration from FS json
-  Serial.println("mounting FS...");
-
+void readConfigFile(){
   if (SPIFFS.begin())
   {
     Serial.println("mounted file system");
@@ -173,6 +133,79 @@ void setup_wifi()
     Serial.println("failed to mount FS");
   }
   //end read
+}
+
+void writeConfigFile(){
+    Serial.println("saving config");
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject &json = jsonBuffer.createObject();
+    json["mqtt_server"] = mqtt_server;
+    json["mqtt_port"] = mqtt_port;
+    json["mqtt_user"] = mqtt_user;
+    json["mqtt_password"] = mqtt_password;
+    json["mqtt_topic"] = mqtt_topic;
+    json["event_location"] = event_location;
+    json["event_place"] = event_place;
+    json["event_type"] = event_type;
+    json["event_adjustment"] = event_adjustment;
+
+    File configFile = SPIFFS.open("/cfg.json", "w");
+    if (!configFile)
+    {
+      Serial.println("failed to open config file for writing");
+    }
+
+    json.printTo(Serial);
+    json.printTo(configFile);
+    configFile.close();
+    //end save
+}
+
+void handleRootGET() {
+  sendIndexPage();
+}
+
+void handleRootPOST() {
+  if( !server.hasArg("event_adjustment") || server.arg("event_adjustment") == NULL) {
+    server.send(400, "text/plain", "400: Invalid Request");
+    return;
+  }
+  event_adjustment = server.arg("event_adjustment").toFloat();
+  writeConfigFile();
+  sendIndexPage();
+}
+
+void handleReset(){
+  Serial.println("Reset WiFi settings.");
+  ESP.eraseConfig();
+  delay(3000);
+  ESP.reset();
+  delay(1000);
+}
+
+void handleNotFound()
+{
+  String message = "File Not Found\n\n";
+  message += "URI: ";
+  message += server.uri();
+  message += "\nMethod: ";
+  message += (server.method() == HTTP_GET) ? "GET" : "POST";
+  message += "\nArguments: ";
+  message += server.args();
+  message += "\n";
+  for (uint8_t i = 0; i < server.args(); i++) {
+    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
+  }
+  server.send(404, "text/plain", message);
+}
+
+void setup_wifi()
+{
+  //read configuration from FS json
+  Serial.println("mounting FS...");
+
+  readConfigFile();
+
   String mac = WiFi.macAddress();
   mac.replace(":", "");
   clientId = "IoT_" + mac;
@@ -225,29 +258,7 @@ void setup_wifi()
   //save the custom parameters to FS
   if (shouldSaveConfig)
   {
-    Serial.println("saving config");
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &json = jsonBuffer.createObject();
-    json["mqtt_server"] = mqtt_server;
-    json["mqtt_port"] = mqtt_port;
-    json["mqtt_user"] = mqtt_user;
-    json["mqtt_password"] = mqtt_password;
-    json["mqtt_topic"] = mqtt_topic;
-    json["event_location"] = event_location;
-    json["event_place"] = event_place;
-    json["event_type"] = event_type;
-    json["event_adjustment"] = event_adjustment;
-
-    File configFile = SPIFFS.open("/cfg.json", "w");
-    if (!configFile)
-    {
-      Serial.println("failed to open config file for writing");
-    }
-
-    json.printTo(Serial);
-    json.printTo(configFile);
-    configFile.close();
-    //end save
+    writeConfigFile();
   }
 }
 
