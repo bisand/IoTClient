@@ -29,14 +29,14 @@ PubSubClient client(espClient);
 ESP8266WebServer server(80);
 
 String clientId;
-char *mqtt_server = "";
-char *mqtt_port = "1883";
-char *mqtt_user = "";
-char *mqtt_password = "";
-char *mqtt_topic = "home/livingroom/temperature";
-char *event_location = "home";
-char *event_place = "livingroom";
-char *event_type = "temperature";
+char *mqtt_server = (char *)"";
+char *mqtt_port = (char *)"1883";
+char *mqtt_user = (char *)"";
+char *mqtt_password = (char *)"";
+char *mqtt_topic = (char *)"home/livingroom/temperature";
+char *event_location = (char *)"home";
+char *event_place = (char *)"livingroom";
+char *event_type = (char *)"temperature";
 float event_adjustment = 0.0;
 bool shouldSaveConfig = false;
 
@@ -75,9 +75,21 @@ float readTemp()
   return steinhart + event_adjustment;
 }
 
-void handleRoot() {
+void sendIndexPage(){
   float tmp = readTemp();
-  server.send(200, "text/html", "<html><span>Temperature: "+String(tmp)+"</span><form action=\"/adjusttemp\" method=\"POST\">Adjustment: <input type=\"input\" value=\""+String(event_adjustment)+"\"/><br/><input type=\"submit\" value=\"Save\"/></form></html>");
+  server.send(200, "text/html", "<html><span>Temperature: "+String(tmp)+"</span><form action=\"/\" method=\"POST\">Adjustment: <input type=\"input\" name=\"event_adjustment\" value=\""+String(event_adjustment)+"\"/><br/><input type=\"submit\" value=\"Save\"/></form></html>");
+}
+void handleRootGET() {
+  sendIndexPage();
+}
+
+void handleRootPOST() {
+  if( !server.hasArg("event_adjustment") || server.arg("event_adjustment") == NULL) {
+    server.send(400, "text/plain", "400: Invalid Request");
+    return;
+  }
+  event_adjustment = server.arg("event_adjustment").toFloat();
+  sendIndexPage();
 }
 
 void handleReset(){
@@ -167,6 +179,7 @@ void setup_wifi()
   Serial.println("Chip Id:   " + String(ESP.getChipId()));
   Serial.println("Client Id: " + clientId);
   Serial.println("MAC:       " + mac);
+
   WiFiManagerParameter custom_mqtt_server("server", "MQTT server", mqtt_server, 64);
   WiFiManagerParameter custom_mqtt_port("port", "MQTT port", mqtt_port, 6);
   WiFiManagerParameter custom_mqtt_user("user", "MQTT user", mqtt_user, 32);
@@ -284,10 +297,9 @@ void setup()
   setup_wifi();
   client.setServer(mqtt_server, (int)mqtt_port);
 
-  server.on("/", handleRoot);
-
-  server.on("/reset", handleReset);
-
+  server.on("/", HTTP_GET, handleRootGET);
+  server.on("/", HTTP_POST, handleRootPOST);
+  server.on("/reset", HTTP_GET, handleReset);
   server.onNotFound(handleNotFound);
 
   server.begin();
