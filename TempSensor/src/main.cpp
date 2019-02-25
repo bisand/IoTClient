@@ -35,6 +35,42 @@ char *mqtt_user = "";
 char *mqtt_password = "";
 char *mqtt_topic = "";
 bool shouldSaveConfig = false;
+float tempAdjustment = 0.0;
+
+float readTemp()
+{
+  uint8_t i;
+  float average;
+
+  // take N samples in a row, with a slight delay
+  for (i = 0; i < NUMSAMPLES; i++)
+  {
+    samples[i] = analogRead(THERMISTORPIN);
+    delay(10);
+  }
+
+  // average all the samples out
+  average = 0;
+  for (i = 0; i < NUMSAMPLES; i++)
+  {
+    average += samples[i];
+  }
+  average /= NUMSAMPLES;
+
+  // convert the value to resistance
+  average = 1023 / average - 1;
+  average = SERIESRESISTOR / average;
+
+  float steinhart;
+  steinhart = average / THERMISTORNOMINAL;          // (R/Ro)
+  steinhart = log(steinhart);                       // ln(R/Ro)
+  steinhart /= BCOEFFICIENT;                        // 1/B * ln(R/Ro)
+  steinhart += 1.0 / (TEMPERATURENOMINAL + 273.15); // + (1/To)
+  steinhart = 1.0 / steinhart;                      // Invert
+  steinhart -= 273.15;                              // convert to C
+
+  return steinhart + tempAdjustment;
+}
 
 void handleRoot() {
   server.send(200, "text/plain", "Current temperature: ");
@@ -110,11 +146,12 @@ void setup_wifi()
   }
   //end read
   clientId = String("IoT" + ESP.getChipId()).c_str();
-  WiFiManagerParameter custom_mqtt_server("server", "mqtt server", mqtt_server, 64);
-  WiFiManagerParameter custom_mqtt_port("port", "mqtt port", mqtt_port, 6);
-  WiFiManagerParameter custom_mqtt_user("user", "mqtt user", mqtt_user, 32);
-  WiFiManagerParameter custom_mqtt_password("password", "mqtt password", mqtt_password, 32);
-  WiFiManagerParameter custom_mqtt_topic("topic", "mqtt topic", mqtt_topic, 64);
+  WiFiManagerParameter custom_mqtt_server("server", "MQTT server", mqtt_server, 64);
+  WiFiManagerParameter custom_mqtt_port("port", "MQTT port", mqtt_port, 6);
+  WiFiManagerParameter custom_mqtt_user("user", "MQTT user", mqtt_user, 32);
+  WiFiManagerParameter custom_mqtt_password("password", "MQTT password", mqtt_password, 32);
+  WiFiManagerParameter custom_mqtt_topic("topic", "MQTT topic", mqtt_topic, 64);
+  WiFiManagerParameter custom_temp_adjustment("topic", "Temp adjustment", String(tempAdjustment).c_str(), 6);
 
   wifiManager.setSaveConfigCallback(SaveConfigCallback);
   wifiManager.addParameter(&custom_mqtt_server);
@@ -122,6 +159,7 @@ void setup_wifi()
   wifiManager.addParameter(&custom_mqtt_user);
   wifiManager.addParameter(&custom_mqtt_password);
   wifiManager.addParameter(&custom_mqtt_topic);
+  wifiManager.addParameter(&custom_temp_adjustment);
 
   wifiManager.autoConnect(clientId);
 
@@ -130,6 +168,7 @@ void setup_wifi()
   strcpy(mqtt_user, custom_mqtt_user.getValue());
   strcpy(mqtt_password, custom_mqtt_password.getValue());
   strcpy(mqtt_topic, custom_mqtt_topic.getValue());
+  tempAdjustment = String(custom_mqtt_topic.getValue()).toFloat();
 
   Serial.println("");
   Serial.println("WiFi connected");
@@ -203,41 +242,6 @@ bool checkBound(float newValue, float prevValue, float maxDiff)
 {
   return !isnan(newValue) &&
          (newValue < prevValue - maxDiff || newValue > prevValue + maxDiff);
-}
-
-float readTemp()
-{
-  uint8_t i;
-  float average;
-
-  // take N samples in a row, with a slight delay
-  for (i = 0; i < NUMSAMPLES; i++)
-  {
-    samples[i] = analogRead(THERMISTORPIN);
-    delay(10);
-  }
-
-  // average all the samples out
-  average = 0;
-  for (i = 0; i < NUMSAMPLES; i++)
-  {
-    average += samples[i];
-  }
-  average /= NUMSAMPLES;
-
-  // convert the value to resistance
-  average = 1023 / average - 1;
-  average = SERIESRESISTOR / average;
-
-  float steinhart;
-  steinhart = average / THERMISTORNOMINAL;          // (R/Ro)
-  steinhart = log(steinhart);                       // ln(R/Ro)
-  steinhart /= BCOEFFICIENT;                        // 1/B * ln(R/Ro)
-  steinhart += 1.0 / (TEMPERATURENOMINAL + 273.15); // + (1/To)
-  steinhart = 1.0 / steinhart;                      // Invert
-  steinhart -= 273.15;                              // convert to C
-
-  return steinhart;
 }
 
 void setup()
