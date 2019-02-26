@@ -2,31 +2,96 @@
 
 bool IoTClient::_save_config = false;
 
-IoTClient::IoTClient(IoTConfig& config, float (*readEvent)(void)) {
-    _iotConfig = config;
-    readEventInternal = readEvent;
-    IoTClient::_save_config = false;
-    _espClient = WiFiClient();
-    _client = PubSubClient(_espClient);
-    _server = new ESP8266WebServer(80);
+// Constructor
+IoTClient::IoTClient(IoTConfig &config, float (*readEvent)(void))
+{
+  _iotConfig = config;
+  readEventInternal = readEvent;
+  IoTClient::_save_config = false;
+  _espClient = WiFiClient();
+  _client = PubSubClient(_espClient);
+  _server = new ESP8266WebServer(80);
 }
 
-IoTClient::IoTClient(float (*readEvent)(void)) {
-    readEventInternal = readEvent;
-    IoTClient::_save_config = false;
-    _espClient = WiFiClient();
-    _client = PubSubClient(_espClient);
-    _server = new ESP8266WebServer(80);
+// Constructor
+IoTClient::IoTClient(float (*readEvent)(void))
+{
+  setDefaultConfig();
+  readEventInternal = readEvent;
+  IoTClient::_save_config = false;
+  _espClient = WiFiClient();
+  _client = PubSubClient(_espClient);
+  _server = new ESP8266WebServer(80);
 }
 
-IoTClient::~IoTClient() {
-    _client.disconnect();
-    delete _server;
+// Destructor
+IoTClient::~IoTClient()
+{
+  _client.disconnect();
+  delete _server;
 }
 
-void IoTClient::sendIndexPage(){
-  float tmp = readEventInternal();
-  _server->send(200, "text/html", "<html><span>Temperature: "+String(tmp)+"</span><form action=\"/\" method=\"POST\">Adjustment: <input type=\"input\" name=\"event_adjustment\" value=\""+String(_iotConfig.event_adjustment)+"\"/><br/><input type=\"submit\" value=\"Save\"/></form></html>");
+void IoTClient::setDefaultConfig()
+{
+  _iotConfig.mqtt_server = "";
+  _iotConfig.mqtt_port = "1883";
+  _iotConfig.mqtt_user = "";
+  _iotConfig.mqtt_password = "";
+  _iotConfig.mqtt_topic = "home/livingroom/temperature";
+  _iotConfig.event_location = "home";
+  _iotConfig.event_place = "livingroom";
+  _iotConfig.event_type = "temperature";
+  _iotConfig.event_adjustment = 0.0;
+}
+
+void IoTClient::sendIndexPage()
+{
+  float event = readEventInternal();
+  _server->send(200, "text/html", "<html><body style=\"font-family:Tahoma,Geneva,sans-serif;\"><span>" + _iotConfig.event_type + ": " + String(event) + "</span><form action=\"/\" method=\"POST\">Adjustment: <input type=\"input\" name=\"event_adjustment\" value=\"" + _iotConfig.event_adjustment + "\"/><br/><input type=\"submit\" value=\"Save\"/></form></body></html>");
+}
+
+void IoTClient::handleRootGET()
+{
+  sendIndexPage();
+}
+
+void IoTClient::handleRootPOST()
+{
+  if (!_server->hasArg("event_adjustment") || _server->arg("event_adjustment") == NULL)
+  {
+    _server->send(400, "text/plain", "400: Invalid Request");
+    return;
+  }
+  _iotConfig.event_adjustment = _server->arg("event_adjustment").toFloat();
+  writeConfigFile();
+  sendIndexPage();
+}
+
+void IoTClient::handleReset()
+{
+  Serial.println("Reset WiFi settings.");
+  _server->send(200, "text/html", "<html><body style=\"font-family:Tahoma,Geneva,sans-serif;\"><span>The IoT device will now reset. Please connect to internal WiFi hotspot to reconfigure.</span></body></html>");
+  ESP.eraseConfig();
+  delay(3000);
+  ESP.reset();
+  delay(1000);
+}
+
+void IoTClient::handleNotFound()
+{
+  String message = "File Not Found\n\n";
+  message += "URI: ";
+  message += _server->uri();
+  message += "\nMethod: ";
+  message += (_server->method() == HTTP_GET) ? "GET" : "POST";
+  message += "\nArguments: ";
+  message += _server->args();
+  message += "\n";
+  for (uint8_t i = 0; i < _server->args(); i++)
+  {
+    message += " " + _server->argName(i) + ": " + _server->arg(i) + "\n";
+  }
+  _server->send(404, "text/plain", message);
 }
 
 void IoTClient::saveConfigCallback()
@@ -35,7 +100,8 @@ void IoTClient::saveConfigCallback()
   _save_config = true;
 }
 
-void IoTClient::readConfigFile(){
+void IoTClient::readConfigFile()
+{
   if (SPIFFS.begin())
   {
     Serial.println("mounted file system");
@@ -84,69 +150,31 @@ void IoTClient::readConfigFile(){
   //end read
 }
 
-void IoTClient::writeConfigFile(){
-    Serial.println("saving config");
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &json = jsonBuffer.createObject();
-    json["mqtt_server"] = _iotConfig.mqtt_server;
-    json["mqtt_port"] = _iotConfig.mqtt_port;
-    json["mqtt_user"] = _iotConfig.mqtt_user;
-    json["mqtt_password"] = _iotConfig.mqtt_password;
-    json["mqtt_topic"] = _iotConfig.mqtt_topic;
-    json["event_location"] = _iotConfig.event_location;
-    json["event_place"] = _iotConfig.event_place;
-    json["event_type"] = _iotConfig.event_type;
-    json["event_adjustment"] = _iotConfig.event_adjustment;
-
-    File configFile = SPIFFS.open("/cfg.json", "w");
-    if (!configFile)
-    {
-      Serial.println("failed to open config file for writing");
-    }
-
-    json.printTo(Serial);
-    json.printTo(configFile);
-    configFile.close();
-    //end save
-}
-
-void IoTClient::handleRootGET() {
-  sendIndexPage();
-}
-
-void IoTClient::handleRootPOST() {
-  if( !_server->hasArg("event_adjustment") || _server->arg("event_adjustment") == NULL) {
-    _server->send(400, "text/plain", "400: Invalid Request");
-    return;
-  }
-  _iotConfig.event_adjustment = _server->arg("event_adjustment").toFloat();
-  writeConfigFile();
-  sendIndexPage();
-}
-
-void IoTClient::handleReset(){
-  Serial.println("Reset WiFi settings.");
-  _server->send(200, "text/html", "<html><span>The IoT device will now reset. Please connect to internal WiFi hotspot to reconfigure.</span></html>");
-  ESP.eraseConfig();
-  delay(3000);
-  ESP.reset();
-  delay(1000);
-}
-
-void IoTClient::handleNotFound()
+void IoTClient::writeConfigFile()
 {
-  String message = "File Not Found\n\n";
-  message += "URI: ";
-  message += _server->uri();
-  message += "\nMethod: ";
-  message += (_server->method() == HTTP_GET) ? "GET" : "POST";
-  message += "\nArguments: ";
-  message += _server->args();
-  message += "\n";
-  for (uint8_t i = 0; i < _server->args(); i++) {
-    message += " " + _server->argName(i) + ": " + _server->arg(i) + "\n";
+  Serial.println("saving config");
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject &json = jsonBuffer.createObject();
+  json["mqtt_server"] = _iotConfig.mqtt_server;
+  json["mqtt_port"] = _iotConfig.mqtt_port;
+  json["mqtt_user"] = _iotConfig.mqtt_user;
+  json["mqtt_password"] = _iotConfig.mqtt_password;
+  json["mqtt_topic"] = _iotConfig.mqtt_topic;
+  json["event_location"] = _iotConfig.event_location;
+  json["event_place"] = _iotConfig.event_place;
+  json["event_type"] = _iotConfig.event_type;
+  json["event_adjustment"] = _iotConfig.event_adjustment;
+
+  File configFile = SPIFFS.open("/cfg.json", "w");
+  if (!configFile)
+  {
+    Serial.println("failed to open config file for writing");
   }
-  _server->send(404, "text/plain", message);
+
+  json.printTo(Serial);
+  json.printTo(configFile);
+  configFile.close();
+  //end save
 }
 
 void IoTClient::setup_wifi()
@@ -233,15 +261,15 @@ void IoTClient::reconnect()
       Serial.print(_client.state());
       Serial.println(" try again in 5 seconds");
       // Wait 5 seconds before retrying
-      for(size_t i = 0; i < 10; i++)
+      for (size_t i = 0; i < 10; i++)
       {
         _server->handleClient();
         delay(500);
       }
 
       reconnectCount++;
-      if(reconnectCount > 10){
-
+      if (reconnectCount > 10)
+      {
       }
     }
   }
@@ -252,7 +280,6 @@ bool IoTClient::checkBound(float newValue, float prevValue, float maxDiff)
   return !isnan(newValue) &&
          (newValue < prevValue - maxDiff || newValue > prevValue + maxDiff);
 }
-
 
 void IoTClient::publishEvent()
 {
@@ -268,9 +295,9 @@ void IoTClient::publishEvent()
     if (checkBound(newEventValue, eventValue, eventDiff))
     {
       eventValue = newEventValue;
-      Serial.print("New temperature:");
+      Serial.print("Publishing event: " + _iotConfig.event_type);
       Serial.println(String(eventValue).c_str());
-      String tempData = String(_iotConfig.event_type)+",location="+String(_iotConfig.event_location)+",place="+String(_iotConfig.event_place)+" "+String(_iotConfig.event_type)+"=" + String(eventValue);
+      String tempData = _iotConfig.event_type + ",location=" + _iotConfig.event_location + ",place=" + _iotConfig.event_place + " " + _iotConfig.event_type + "=" + String(eventValue);
       _client.publish(_iotConfig.mqtt_topic.c_str(), tempData.c_str(), true);
     }
     newEventValue = 0;

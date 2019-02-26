@@ -5,7 +5,7 @@
 // which analog pin to connect
 #define THERMISTORPIN A0
 // resistance at 25 degrees C
-#define THERMISTORNOMINAL 10020
+#define THERMISTORNOMINAL 10000
 // temp. for nominal resistance (almost always 25 C)
 #define TEMPERATURENOMINAL 25
 // how many samples to take and average, more takes longer
@@ -14,7 +14,7 @@
 // The beta coefficient of the thermistor (usually 3000-4000)
 #define BCOEFFICIENT 3950
 // the value of the 'other' resistor
-#define SERIESRESISTOR 10040
+#define SERIESRESISTOR 10000
 
 uint16_t samples[NUMSAMPLES];
 
@@ -52,6 +52,7 @@ float readEvent()
   steinhart = 1.0 / steinhart;                      // Invert
   steinhart -= 273.15;                              // convert to C
 
+  Serial.println("Temperature reading complete: " + String(steinhart));
   return steinhart;
 }
 
@@ -59,11 +60,22 @@ IoTClient *iotClient;
 
 void setup()
 {
-  iotClient = new IoTClient(readEvent);
+  IoTConfig config;
+  config.mqtt_server = "";
+  config.mqtt_port = "1883";
+  config.mqtt_user = "";
+  config.mqtt_password = "";
+  config.mqtt_topic = "home/livingroom/temperature";
+  config.event_location = "home";
+  config.event_place = "livingroom";
+  config.event_type = "temperature";
+  config.event_adjustment = 0.0;
+
+  iotClient = new IoTClient(config, readEvent);
   iotClient->setup();
 }
 
 void loop()
 {
-    iotClient->loop();
+  iotClient->loop();
 }
