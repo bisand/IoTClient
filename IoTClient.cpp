@@ -295,7 +295,7 @@ void IoTClient::publishEvent()
     if (checkBound(newEventValue, eventValue, eventDiff))
     {
       eventValue = newEventValue;
-      Serial.print("Publishing event: " + _iotConfig.event_type);
+      Serial.print("Publishing event: " + _iotConfig.event_type + " -> ");
       Serial.println(String(eventValue).c_str());
       String tempData = _iotConfig.event_type + ",location=" + _iotConfig.event_location + ",place=" + _iotConfig.event_place + " " + _iotConfig.event_type + "=" + String(eventValue);
       _client.publish(_iotConfig.mqtt_topic.c_str(), tempData.c_str(), true);
