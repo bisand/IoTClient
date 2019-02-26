@@ -51,7 +51,7 @@ private:
   static void saveConfigCallback();
   float (*readEventInternal)();
 
-  void setDefaultConfig();
+  void init();
   void sendIndexPage();
   void readConfigFile();
   void writeConfigFile();

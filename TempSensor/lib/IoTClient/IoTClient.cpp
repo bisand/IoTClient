@@ -16,7 +16,7 @@ IoTClient::IoTClient(IoTConfig &config, float (*readEvent)(void))
 // Constructor
 IoTClient::IoTClient(float (*readEvent)(void))
 {
-  setDefaultConfig();
+  init();
   readEventInternal = readEvent;
   IoTClient::_save_config = false;
   _espClient = WiFiClient();
@@ -31,7 +31,7 @@ IoTClient::~IoTClient()
   delete _server;
 }
 
-void IoTClient::setDefaultConfig()
+void IoTClient::init()
 {
   _iotConfig.mqtt_server = "";
   _iotConfig.mqtt_port = "1883";
@@ -44,17 +44,20 @@ void IoTClient::setDefaultConfig()
   _iotConfig.event_adjustment = 0.0;
 }
 
+// Html index page
 void IoTClient::sendIndexPage()
 {
   float event = readEventInternal();
-  _server->send(200, "text/html", "<html><body style=\"font-family:Tahoma,Geneva,sans-serif;\"><span>" + _iotConfig.event_type + ": " + String(event) + "</span><form action=\"/\" method=\"POST\">Adjustment: <input type=\"input\" name=\"event_adjustment\" value=\"" + _iotConfig.event_adjustment + "\"/><br/><input type=\"submit\" value=\"Save\"/></form></body></html>");
+  _server->send(200, "text/html", "<html><body style=\"font-family:Tahoma,Geneva,sans-serif;\"><h1>"+clientId+"</h1><span>" + _iotConfig.event_type + ": " + String(event) + "</span><form action=\"/\" method=\"POST\">Adjustment: <input type=\"input\" name=\"event_adjustment\" value=\"" + _iotConfig.event_adjustment + "\"/><br/><input type=\"submit\" value=\"Save\"/></form></body></html>");
 }
 
+// Handle GET request for root
 void IoTClient::handleRootGET()
 {
   sendIndexPage();
 }
 
+// Handle POST request for root
 void IoTClient::handleRootPOST()
 {
   if (!_server->hasArg("event_adjustment") || _server->arg("event_adjustment") == NULL)
@@ -67,6 +70,7 @@ void IoTClient::handleRootPOST()
   sendIndexPage();
 }
 
+// Handle reset request
 void IoTClient::handleReset()
 {
   Serial.println("Reset WiFi settings.");
@@ -77,6 +81,7 @@ void IoTClient::handleReset()
   delay(1000);
 }
 
+// Handle 404 page
 void IoTClient::handleNotFound()
 {
   String message = "File Not Found\n\n";
@@ -94,12 +99,14 @@ void IoTClient::handleNotFound()
   _server->send(404, "text/plain", message);
 }
 
+// Callback to set the save config flag.
 void IoTClient::saveConfigCallback()
 {
   Serial.println("Should save config");
   _save_config = true;
 }
 
+// Read config file.
 void IoTClient::readConfigFile()
 {
   if (SPIFFS.begin())
@@ -150,6 +157,7 @@ void IoTClient::readConfigFile()
   //end read
 }
 
+// Save config file.
 void IoTClient::writeConfigFile()
 {
   Serial.println("saving config");
@@ -177,6 +185,7 @@ void IoTClient::writeConfigFile()
   //end save
 }
 
+// Perform WiFi setup
 void IoTClient::setup_wifi()
 {
   //read configuration from FS json
@@ -241,6 +250,7 @@ void IoTClient::setup_wifi()
   }
 }
 
+// Reconnect MQTT connection
 void IoTClient::reconnect()
 {
   int reconnectCount = 0;
@@ -275,12 +285,14 @@ void IoTClient::reconnect()
   }
 }
 
+// Check if event change is within bounds
 bool IoTClient::checkBound(float newValue, float prevValue, float maxDiff)
 {
   return !isnan(newValue) &&
          (newValue < prevValue - maxDiff || newValue > prevValue + maxDiff);
 }
 
+// Publish the event.
 void IoTClient::publishEvent()
 {
   newEventValue = newEventValue + readEventInternal();
@@ -305,6 +317,7 @@ void IoTClient::publishEvent()
   }
 }
 
+// Setup method to be called from containing Setup method
 void IoTClient::setup()
 {
   Serial.begin(115200);
@@ -320,6 +333,7 @@ void IoTClient::setup()
   Serial.println("HTTP server started");
 }
 
+// Loop method to be called from containing Loop method
 void IoTClient::loop()
 {
   _server->handleClient();
