@@ -1,12 +1,6 @@
 
-#include <FS.h>
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <PubSubClient.h>
-#include <DNSServer.h>
-#include <WiFiManager.h>
-#include <ArduinoJson.h>
-#include <ESP8266WebServer.h>
+#include <IoTClient.h>
 
 // which analog pin to connect
 #define THERMISTORPIN A0
@@ -23,21 +17,7 @@
 #define SERIESRESISTOR 10040
 
 uint16_t samples[NUMSAMPLES];
-WiFiManager wifiManager;
-WiFiClient espClient;
-PubSubClient client(espClient);
-ESP8266WebServer server(80);
 
-String clientId;
-String mqtt_server = "";
-String mqtt_port = "1883";
-String mqtt_user = "";
-String mqtt_password = "";
-String mqtt_topic = "home/livingroom/temperature";
-String event_location = "home";
-String event_place = "livingroom";
-String event_type = "temperature";
-float event_adjustment = 0.0;
 bool shouldSaveConfig = false;
 
 float readEvent()
@@ -72,292 +52,18 @@ float readEvent()
   steinhart = 1.0 / steinhart;                      // Invert
   steinhart -= 273.15;                              // convert to C
 
-  return steinhart + event_adjustment;
+  return steinhart;
 }
 
-long lastMsg = 0;
-float temp = 0.0;
-float hum = 0.0;
-float diff = 0.1;
-float newTemp = 0.0;
-int tempCount = 0;
-
-bool checkBound(float newValue, float prevValue, float maxDiff)
-{
-  return !isnan(newValue) &&
-         (newValue < prevValue - maxDiff || newValue > prevValue + maxDiff);
-}
-
-void publishEvent()
-{
-  newTemp = newTemp + readEvent();
-  tempCount++;
-
-  long now = millis();
-  if (now - lastMsg > 5000)
-  {
-    lastMsg = now;
-
-    newTemp = newTemp / (float)tempCount;
-    if (checkBound(newTemp, temp, diff))
-    {
-      temp = newTemp;
-      Serial.print("New temperature:");
-      Serial.println(String(temp).c_str());
-      String tempData = String(event_type)+",location="+String(event_location)+",place="+String(event_place)+" "+String(event_type)+"=" + String(temp);
-      client.publish(mqtt_topic.c_str(), tempData.c_str(), true);
-    }
-    newTemp = 0;
-    tempCount = 0;
-  }
-}
-
-void sendIndexPage(){
-  float tmp = readEvent();
-  server.send(200, "text/html", "<html><span>Temperature: "+String(tmp)+"</span><form action=\"/\" method=\"POST\">Adjustment: <input type=\"input\" name=\"event_adjustment\" value=\""+String(event_adjustment)+"\"/><br/><input type=\"submit\" value=\"Save\"/></form></html>");
-}
-
-void SaveConfigCallback()
-{
-  Serial.println("Should save config");
-  shouldSaveConfig = true;
-}
-
-void readConfigFile(){
-  if (SPIFFS.begin())
-  {
-    Serial.println("mounted file system");
-    if (SPIFFS.exists("/cfg.json"))
-    {
-      //file exists, reading and loading
-      Serial.println("reading config file");
-      File configFile = SPIFFS.open("/cfg.json", "r");
-      if (configFile)
-      {
-        Serial.println("opened config file");
-        size_t size = configFile.size();
-        // Allocate a buffer to store contents of the file.
-        std::unique_ptr<char[]> buf(new char[size]);
-
-        configFile.readBytes(buf.get(), size);
-        DynamicJsonBuffer jsonBuffer;
-        JsonObject &json = jsonBuffer.parseObject(buf.get());
-        json.printTo(Serial);
-        if (json.success())
-        {
-          Serial.println("\nparsed json");
-
-          mqtt_server = json.get<String>("mqtt_server");
-          mqtt_port = json.get<String>("mqtt_port");
-          mqtt_user = json.get<String>("mqtt_user");
-          mqtt_password = json.get<String>("mqtt_password");
-          mqtt_topic = json.get<String>("mqtt_topic");
-          event_adjustment = json.get<float>("event_adjustment");
-          event_type = json.get<String>("event_type");
-          event_location = json.get<String>("event_location");
-          event_place = json.get<String>("event_place");
-        }
-        else
-        {
-          Serial.println("failed to load json config");
-        }
-        configFile.close();
-      }
-    }
-  }
-  else
-  {
-    Serial.println("failed to mount FS");
-  }
-  //end read
-}
-
-void writeConfigFile(){
-    Serial.println("saving config");
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &json = jsonBuffer.createObject();
-    json["mqtt_server"] = mqtt_server;
-    json["mqtt_port"] = mqtt_port;
-    json["mqtt_user"] = mqtt_user;
-    json["mqtt_password"] = mqtt_password;
-    json["mqtt_topic"] = mqtt_topic;
-    json["event_location"] = event_location;
-    json["event_place"] = event_place;
-    json["event_type"] = event_type;
-    json["event_adjustment"] = event_adjustment;
-
-    File configFile = SPIFFS.open("/cfg.json", "w");
-    if (!configFile)
-    {
-      Serial.println("failed to open config file for writing");
-    }
-
-    json.printTo(Serial);
-    json.printTo(configFile);
-    configFile.close();
-    //end save
-}
-
-void handleRootGET() {
-  sendIndexPage();
-}
-
-void handleRootPOST() {
-  if( !server.hasArg("event_adjustment") || server.arg("event_adjustment") == NULL) {
-    server.send(400, "text/plain", "400: Invalid Request");
-    return;
-  }
-  event_adjustment = server.arg("event_adjustment").toFloat();
-  writeConfigFile();
-  sendIndexPage();
-}
-
-void handleReset(){
-  Serial.println("Reset WiFi settings.");
-  server.send(200, "text/html", "<html><span>The IoT device will now reset. Please connect to internal WiFi hotspot to reconfigure.</span></html>");
-  ESP.eraseConfig();
-  delay(3000);
-  ESP.reset();
-  delay(1000);
-}
-
-void handleNotFound()
-{
-  String message = "File Not Found\n\n";
-  message += "URI: ";
-  message += server.uri();
-  message += "\nMethod: ";
-  message += (server.method() == HTTP_GET) ? "GET" : "POST";
-  message += "\nArguments: ";
-  message += server.args();
-  message += "\n";
-  for (uint8_t i = 0; i < server.args(); i++) {
-    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
-  }
-  server.send(404, "text/plain", message);
-}
-
-void setup_wifi()
-{
-  //read configuration from FS json
-  Serial.println("mounting FS...");
-
-  readConfigFile();
-
-  String mac = WiFi.macAddress();
-  mac.replace(":", "");
-  clientId = "IoT_" + mac.substring(6);
-  Serial.println("Chip Id:   " + String(ESP.getChipId()));
-  Serial.println("Client Id: " + clientId);
-  Serial.println("MAC:       " + mac);
-
-  WiFiManagerParameter custom_mqtt_server("server", "MQTT server", mqtt_server.c_str(), 64);
-  WiFiManagerParameter custom_mqtt_port("port", "MQTT port", mqtt_port.c_str(), 6);
-  WiFiManagerParameter custom_mqtt_user("user", "MQTT user", mqtt_user.c_str(), 32);
-  WiFiManagerParameter custom_mqtt_password("password", "MQTT password", mqtt_password.c_str(), 32);
-  WiFiManagerParameter custom_mqtt_topic("topic", "MQTT topic", mqtt_topic.c_str(), 128);
-  WiFiManagerParameter custom_event_adjustment("adjustment", "Temp adjustment", String(event_adjustment).c_str(), 6);
-  WiFiManagerParameter custom_event_type("eventType", "Event type", event_type.c_str(), 64);
-  WiFiManagerParameter custom_event_location("eventLocation", "Event location", event_location.c_str(), 64);
-  WiFiManagerParameter custom_event_place("eventPlace", "Event place", event_place.c_str(), 64);
-
-  wifiManager.setSaveConfigCallback(SaveConfigCallback);
-  wifiManager.addParameter(&custom_mqtt_server);
-  wifiManager.addParameter(&custom_mqtt_port);
-  wifiManager.addParameter(&custom_mqtt_user);
-  wifiManager.addParameter(&custom_mqtt_password);
-  wifiManager.addParameter(&custom_mqtt_topic);
-  wifiManager.addParameter(&custom_event_location);
-  wifiManager.addParameter(&custom_event_place);
-  wifiManager.addParameter(&custom_event_type);
-  wifiManager.addParameter(&custom_event_adjustment);
-
-  wifiManager.autoConnect(clientId.c_str());
-
-  mqtt_server = custom_mqtt_server.getValue();
-  mqtt_port = custom_mqtt_port.getValue();
-  mqtt_user = custom_mqtt_user.getValue();
-  mqtt_password = custom_mqtt_password.getValue();
-  mqtt_topic = custom_mqtt_topic.getValue();
-  event_type = custom_event_type.getValue();
-  event_location = custom_event_location.getValue();
-  event_place = custom_event_place.getValue();
-  event_adjustment = String(custom_event_adjustment.getValue()).toFloat();
-
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
-  Serial.print("MQTT Server: ");
-  Serial.println(mqtt_server);
-  Serial.print("MQTT Topic: ");
-  Serial.println(mqtt_topic);
-
-  //save the custom parameters to FS
-  if (shouldSaveConfig)
-  {
-    writeConfigFile();
-  }
-}
-
-void reconnect()
-{
-  int reconnectCount = 0;
-  // Loop until we're reconnected
-  while (!client.connected())
-  {
-    Serial.print("Attempting MQTT connection...");
-    // Attempt to connect
-    // If you do not want to use a username and password, change next line to
-    // if (client.connect("ESP8266Client")) {
-    if (client.connect(clientId.c_str(), mqtt_user.c_str(), mqtt_password.c_str()))
-    {
-      Serial.println("connected");
-    }
-    else
-    {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      // Wait 5 seconds before retrying
-      for(size_t i = 0; i < 10; i++)
-      {
-        server.handleClient();
-        delay(500);
-      }
-
-      reconnectCount++;
-      if(reconnectCount > 10){
-
-      }
-    }
-  }
-}
+IoTClient *iotClient;
 
 void setup()
 {
-  Serial.begin(115200);
-  setup_wifi();
-  client.setServer(mqtt_server.c_str(), mqtt_port.toInt());
-
-  server.on("/", HTTP_GET, handleRootGET);
-  server.on("/", HTTP_POST, handleRootPOST);
-  server.on("/reset", HTTP_GET, handleReset);
-  server.onNotFound(handleNotFound);
-
-  server.begin();
-  Serial.println("HTTP server started");
+  iotClient = new IoTClient(readEvent);
+  iotClient->setup();
 }
 
 void loop()
 {
-  server.handleClient();
-
-  if (!client.connected())
-  {
-    reconnect();
-  }
-  client.loop();
-
-  publishEvent();
+    iotClient->loop();
 }
