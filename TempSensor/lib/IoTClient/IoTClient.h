@@ -24,15 +24,6 @@ public:
 
 class IoTClient
 {
-public:
-  IoTClient(IoTConfig &config, float (*readEvent)(void));
-  IoTClient(float (*readEvent)(void));
-  ~IoTClient();
-
-  bool isDebug;
-
-  void setup();
-  void loop();
 private:
   static bool _save_config;
 
@@ -65,4 +56,14 @@ private:
 
   bool checkBound(float newValue, float prevValue, float maxDiff);
   void publishEvent();
+
+public:
+  IoTClient(IoTConfig &config, float (*readEvent)(void));
+  IoTClient(float (*readEvent)(void));
+  ~IoTClient();
+
+  bool isDebug;
+
+  void setup();
+  void loop();
 };

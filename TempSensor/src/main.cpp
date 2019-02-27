@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <IoTClient.h>
+#include <alttemp.h>
 
 // which analog pin to connect
 #define THERMISTORPIN A0
@@ -55,6 +56,7 @@ float readEvent()
 }
 
 IoTClient *iotClient;
+alttemp *tmp;
 
 void setup()
 {
@@ -73,10 +75,14 @@ void setup()
   iotClient = new IoTClient(config, readEvent);
   iotClient->isDebug = isDebug;
   iotClient->setup();
+
+  tmp = new alttemp();
+  tmp->setup();
 }
 
 void loop()
 {
   iotClient->loop();
+  tmp->loop();
   delay(1000);
 }
