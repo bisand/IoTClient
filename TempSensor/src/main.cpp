@@ -16,8 +16,7 @@
 #define SERIESRESISTOR 10000
 
 uint16_t samples[NUMSAMPLES];
-
-bool shouldSaveConfig = false;
+bool isDebug = false;
 
 float readEvent()
 {
@@ -51,7 +50,7 @@ float readEvent()
   steinhart = 1.0 / steinhart;                      // Invert
   steinhart -= 273.15;                              // convert to C
 
-  Serial.println("Temperature reading complete: " + String(steinhart));
+  if(isDebug) Serial.println("Temperature reading complete: " + String(steinhart));
   return steinhart;
 }
 
@@ -71,7 +70,7 @@ void setup()
   config.event_adjustment = 0.0;
 
   iotClient = new IoTClient(config, readEvent);
-  iotClient->isDebug = false;
+  iotClient->isDebug = isDebug;
   iotClient->setup();
 }
 
