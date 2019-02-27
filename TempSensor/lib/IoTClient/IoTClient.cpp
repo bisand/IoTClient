@@ -272,16 +272,11 @@ void IoTClient::reconnect()
       if(isDebug) Serial.print("failed, rc=");
       if(isDebug) Serial.print(_client.state());
       if(isDebug) Serial.println(" try again in 5 seconds");
-      // Wait 5 seconds before retrying
+      // Wait 5 seconds before retrying and handle http requests while waiting.
       for (size_t i = 0; i < 10; i++)
       {
         _server->handleClient();
         delay(500);
-      }
-
-      reconnectCount++;
-      if (reconnectCount > 10)
-      {
       }
     }
   }
