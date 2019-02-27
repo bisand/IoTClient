@@ -1,4 +1,3 @@
-
 #include <FS.h>
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
@@ -20,6 +19,7 @@ public:
   String event_place;
   String event_type;
   float event_adjustment;
+  int event_interval;
 };
 
 class IoTClient
@@ -29,9 +29,10 @@ public:
   IoTClient(float (*readEvent)(void));
   ~IoTClient();
 
+  bool isDebug;
+
   void setup();
   void loop();
-
 private:
   static bool _save_config;
 

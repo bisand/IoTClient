@@ -5,6 +5,7 @@ bool IoTClient::_save_config = false;
 // Constructor
 IoTClient::IoTClient(IoTConfig &config, float (*readEvent)(void))
 {
+  isDebug = false;
   _iotConfig = config;
   readEventInternal = readEvent;
   IoTClient::_save_config = false;
@@ -16,6 +17,7 @@ IoTClient::IoTClient(IoTConfig &config, float (*readEvent)(void))
 // Constructor
 IoTClient::IoTClient(float (*readEvent)(void))
 {
+  isDebug = false;
   init();
   readEventInternal = readEvent;
   IoTClient::_save_config = false;
@@ -73,7 +75,7 @@ void IoTClient::handleRootPOST()
 // Handle reset request
 void IoTClient::handleReset()
 {
-  Serial.println("Reset WiFi settings.");
+  if(isDebug) Serial.println("Reset WiFi settings.");
   _server->send(200, "text/html", "<html><body style=\"font-family:Tahoma,Geneva,sans-serif;\"><span>The IoT device will now reset. Please connect to internal WiFi hotspot to reconfigure.</span></body></html>");
   ESP.eraseConfig();
   delay(3000);
@@ -102,7 +104,6 @@ void IoTClient::handleNotFound()
 // Callback to set the save config flag.
 void IoTClient::saveConfigCallback()
 {
-  Serial.println("Should save config");
   _save_config = true;
 }
 
@@ -111,15 +112,15 @@ void IoTClient::readConfigFile()
 {
   if (SPIFFS.begin())
   {
-    Serial.println("mounted file system");
+    if(isDebug) Serial.println("mounted file system");
     if (SPIFFS.exists("/cfg.json"))
     {
       //file exists, reading and loading
-      Serial.println("reading config file");
+      if(isDebug) Serial.println("reading config file");
       File configFile = SPIFFS.open("/cfg.json", "r");
       if (configFile)
       {
-        Serial.println("opened config file");
+        if(isDebug) Serial.println("opened config file");
         size_t size = configFile.size();
         // Allocate a buffer to store contents of the file.
         std::unique_ptr<char[]> buf(new char[size]);
@@ -130,7 +131,7 @@ void IoTClient::readConfigFile()
         json.printTo(Serial);
         if (json.success())
         {
-          Serial.println("\nparsed json");
+          if(isDebug) Serial.println("\nparsed json");
 
           _iotConfig.mqtt_server = json.get<String>("mqtt_server");
           _iotConfig.mqtt_port = json.get<String>("mqtt_port");
@@ -144,7 +145,7 @@ void IoTClient::readConfigFile()
         }
         else
         {
-          Serial.println("failed to load json config");
+          if(isDebug) Serial.println("failed to load json config");
         }
         configFile.close();
       }
@@ -152,7 +153,7 @@ void IoTClient::readConfigFile()
   }
   else
   {
-    Serial.println("failed to mount FS");
+    if(isDebug) Serial.println("failed to mount FS");
   }
   //end read
 }
@@ -160,7 +161,7 @@ void IoTClient::readConfigFile()
 // Save config file.
 void IoTClient::writeConfigFile()
 {
-  Serial.println("saving config");
+  if(isDebug) Serial.println("saving config");
   DynamicJsonBuffer jsonBuffer;
   JsonObject &json = jsonBuffer.createObject();
   json["mqtt_server"] = _iotConfig.mqtt_server;
@@ -176,7 +177,7 @@ void IoTClient::writeConfigFile()
   File configFile = SPIFFS.open("/cfg.json", "w");
   if (!configFile)
   {
-    Serial.println("failed to open config file for writing");
+    if(isDebug) Serial.println("failed to open config file for writing");
   }
 
   json.printTo(Serial);
@@ -189,16 +190,16 @@ void IoTClient::writeConfigFile()
 void IoTClient::setup_wifi()
 {
   //read configuration from FS json
-  Serial.println("mounting FS...");
+  if(isDebug) Serial.println("mounting FS...");
 
   readConfigFile();
 
   String mac = WiFi.macAddress();
   mac.replace(":", "");
   clientId = "IoT_" + mac.substring(6);
-  Serial.println("Chip Id:   " + String(ESP.getChipId()));
-  Serial.println("Client Id: " + clientId);
-  Serial.println("MAC:       " + mac);
+  if(isDebug) Serial.println("Chip Id:   " + String(ESP.getChipId()));
+  if(isDebug) Serial.println("Client Id: " + clientId);
+  if(isDebug) Serial.println("MAC:       " + mac);
 
   WiFiManagerParameter custom_mqtt_server("server", "MQTT server", _iotConfig.mqtt_server.c_str(), 64);
   WiFiManagerParameter custom_mqtt_port("port", "MQTT port", _iotConfig.mqtt_port.c_str(), 6);
@@ -234,14 +235,14 @@ void IoTClient::setup_wifi()
   _iotConfig.event_place = custom_event_place.getValue();
   _iotConfig.event_adjustment = String(custom_event_adjustment.getValue()).toFloat();
 
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
-  Serial.print("MQTT Server: ");
-  Serial.println(_iotConfig.mqtt_server);
-  Serial.print("MQTT Topic: ");
-  Serial.println(_iotConfig.mqtt_topic);
+  if(isDebug) Serial.println("");
+  if(isDebug) Serial.println("WiFi connected");
+  if(isDebug) Serial.println("IP address: ");
+  if(isDebug) Serial.println(WiFi.localIP());
+  if(isDebug) Serial.print("MQTT Server: ");
+  if(isDebug) Serial.println(_iotConfig.mqtt_server);
+  if(isDebug) Serial.print("MQTT Topic: ");
+  if(isDebug) Serial.println(_iotConfig.mqtt_topic);
 
   //save the custom parameters to FS
   if (IoTClient::_save_config)
@@ -257,19 +258,19 @@ void IoTClient::reconnect()
   // Loop until we're reconnected
   while (!_client.connected())
   {
-    Serial.print("Attempting MQTT connection...");
+    if(isDebug) Serial.print("Attempting MQTT connection...");
     // Attempt to connect
     // If you do not want to use a username and password, change next line to
     // if (_client.connect("ESP8266Client")) {
     if (_client.connect(clientId.c_str(), _iotConfig.mqtt_user.c_str(), _iotConfig.mqtt_password.c_str()))
     {
-      Serial.println("connected");
+      if(isDebug) Serial.println("connected");
     }
     else
     {
-      Serial.print("failed, rc=");
-      Serial.print(_client.state());
-      Serial.println(" try again in 5 seconds");
+      if(isDebug) Serial.print("failed, rc=");
+      if(isDebug) Serial.print(_client.state());
+      if(isDebug) Serial.println(" try again in 5 seconds");
       // Wait 5 seconds before retrying
       for (size_t i = 0; i < 10; i++)
       {
@@ -307,8 +308,8 @@ void IoTClient::publishEvent()
     if (checkBound(newEventValue, eventValue, eventDiff))
     {
       eventValue = newEventValue;
-      Serial.print("Publishing event: " + _iotConfig.event_type + " -> ");
-      Serial.println(String(eventValue).c_str());
+      if(isDebug) Serial.print("Publishing event: " + _iotConfig.event_type + " -> ");
+      if(isDebug) Serial.println(String(eventValue).c_str());
       String tempData = _iotConfig.event_type + ",location=" + _iotConfig.event_location + ",place=" + _iotConfig.event_place + " " + _iotConfig.event_type + "=" + String(eventValue);
       _client.publish(_iotConfig.mqtt_topic.c_str(), tempData.c_str(), true);
     }
@@ -320,7 +321,7 @@ void IoTClient::publishEvent()
 // Setup method to be called from containing Setup method
 void IoTClient::setup()
 {
-  Serial.begin(115200);
+  if(isDebug) Serial.begin(115200);
   setup_wifi();
   _client.setServer(_iotConfig.mqtt_server.c_str(), _iotConfig.mqtt_port.toInt());
 
@@ -330,7 +331,7 @@ void IoTClient::setup()
   _server->onNotFound(std::bind(&IoTClient::handleNotFound, this));
 
   _server->begin();
-  Serial.println("HTTP server started");
+  if(isDebug) Serial.println("HTTP server started");
 }
 
 // Loop method to be called from containing Loop method

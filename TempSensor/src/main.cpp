@@ -71,6 +71,7 @@ void setup()
   config.event_adjustment = 0.0;
 
   iotClient = new IoTClient(config, readEvent);
+  iotClient->isDebug = false;
   iotClient->setup();
 }
 
