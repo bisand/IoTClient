@@ -16,6 +16,9 @@ void AltTemp::setup()
 
 float AltTemp::getTemperature1()
 {
+  // Taken from:
+  // https://www.instructables.com/id/NTC-Temperature-Sensor-With-Arduino/
+  
   _tempData1.Vout = _tempData1.Vin * ((float)(analogRead(0)) / 1024.0); // calc for ntc
   _tempData1.Rout = (_tempData1.Rt * _tempData1.Vout / (_tempData1.Vin - _tempData1.Vout));
 
