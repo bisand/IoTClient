@@ -19,7 +19,7 @@ public:
   String event_place;
   String event_type;
   float event_adjustment;
-  int event_interval;
+  int event_publish_interval;
 };
 
 class IoTClient

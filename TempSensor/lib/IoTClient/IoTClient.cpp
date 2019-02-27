@@ -44,6 +44,7 @@ void IoTClient::init()
   _iotConfig.event_place = "livingroom";
   _iotConfig.event_type = "temperature";
   _iotConfig.event_adjustment = 0.0;
+  _iotConfig.event_publish_interval = 5000;
 }
 
 // Html index page
@@ -300,7 +301,7 @@ void IoTClient::publishEvent()
   eventCount++;
 
   long now = millis();
-  if (now - lastMsg > 5000)
+  if (now - lastMsg > _iotConfig.event_publish_interval)
   {
     lastMsg = now;
 
