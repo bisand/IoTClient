@@ -1,9 +1,8 @@
 #include <Arduino.h>
 
-class alttemp
+struct TempData1
 {
-  private:
-    float Vin = 5.0;   // [V]
+    float Vin = 3.3;   // [V]
     float Rt = 10000;  // Resistor t [ohm]
     float R0 = 10000;  // value of rct in T0 [ohm]
     float T0 = 298.15; // use T0 in Kelvin [K]
@@ -18,11 +17,17 @@ class alttemp
     float Rinf = 0.0;  // initial parameters [ohm]
     float TempK = 0.0; // variable output
     float TempC = 0.0; // variable output
+};
+
+class AltTemp
+{
+  private:
+    TempData1 _tempData1;
 
   public:
-    alttemp(/* args */);
-    ~alttemp();
+    AltTemp(/* args */);
+    ~AltTemp();
 
     void setup();
-    void loop();
+    float getTemperature1();
 };

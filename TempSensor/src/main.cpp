@@ -17,7 +17,7 @@
 #define SERIESRESISTOR 10000
 
 uint16_t samples[NUMSAMPLES];
-bool isDebug = false;
+bool isDebug = true;
 
 float readEvent()
 {
@@ -56,7 +56,7 @@ float readEvent()
 }
 
 IoTClient *iotClient;
-alttemp *tmp;
+AltTemp *altTemp;
 
 void setup()
 {
@@ -76,13 +76,16 @@ void setup()
   iotClient->isDebug = isDebug;
   iotClient->setup();
 
-  tmp = new alttemp();
-  tmp->setup();
+  altTemp = new AltTemp();
+  altTemp->setup();
 }
 
 void loop()
 {
   iotClient->loop();
-  tmp->loop();
+
+  float temp1 = altTemp->getTemperature1();
+  Serial.println("Alt. Temp: " + String(temp1));
+
   delay(1000);
 }

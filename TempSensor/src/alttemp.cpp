@@ -1,26 +1,26 @@
 #include <alttemp.h>
 
-alttemp::alttemp(/* args */)
+AltTemp::AltTemp(/* args */)
 {
 }
 
-alttemp::~alttemp()
+AltTemp::~AltTemp()
 {
 }
 
-void alttemp::setup() {
-  beta=(log(RT1/RT2))/((1/T1)-(1/T2));
-  Rinf=R0*exp(-beta/T0);
-}
-
-void alttemp::loop()
+void AltTemp::setup()
 {
-  Vout=Vin*((float)(analogRead(0))/1024.0); // calc for ntc
-  Rout=(Rt*Vout/(Vin-Vout));
-
-  TempK=(beta/log(Rout/Rinf)); // calc for temperature
-  TempC=TempK-273.15;
-
-  Serial.println("Alt. Temp: " + String(TempC));
+  _tempData1.beta = (log(_tempData1.RT1 / _tempData1.RT2)) / ((1 / _tempData1.T1) - (1 / _tempData1.T2));
+  _tempData1.Rinf = _tempData1.R0 * exp(-_tempData1.beta / _tempData1.T0);
 }
 
+float AltTemp::getTemperature1()
+{
+  _tempData1.Vout = _tempData1.Vin * ((float)(analogRead(0)) / 1024.0); // calc for ntc
+  _tempData1.Rout = (_tempData1.Rt * _tempData1.Vout / (_tempData1.Vin - _tempData1.Vout));
+
+  _tempData1.TempK = (_tempData1.beta / log(_tempData1.Rout / _tempData1.Rinf)); // calc for temperature
+  _tempData1.TempC = _tempData1.TempK - 273.15;
+
+  return _tempData1.TempC;
+}
