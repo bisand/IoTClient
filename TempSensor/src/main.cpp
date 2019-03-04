@@ -2,61 +2,16 @@
 #include <IoTClient.h>
 #include <alttemp.h>
 
-// which analog pin to connect
-#define THERMISTORPIN A0
-// resistance at 25 degrees C
-#define THERMISTORNOMINAL 10000
-// temp. for nominal resistance (almost always 25 C)
-#define TEMPERATURENOMINAL 25
-// how many samples to take and average, more takes longer
-// but is more 'smooth'
-#define NUMSAMPLES 25
-// The beta coefficient of the thermistor (usually 3000-4000)
-#define BCOEFFICIENT 3950
-// the value of the 'other' resistor
-#define SERIESRESISTOR 10000
-
-uint16_t samples[NUMSAMPLES];
 bool isDebug = true;
+IoTClient *iotClient;
+AltTemp *altTemp;
 
 float readEvent()
 {
-  uint8_t i;
-  float average;
-
-  // take N samples in a row, with a slight delay
-  for (i = 0; i < NUMSAMPLES; i++)
-  {
-    samples[i] = analogRead(THERMISTORPIN);
-    delay(10);
-  }
-
-  // average all the samples out
-  average = 0;
-  for (i = 0; i < NUMSAMPLES; i++)
-  {
-    average += samples[i];
-  }
-  average /= NUMSAMPLES;
-
-  // convert the value to resistance
-  average = 1023 / average - 1;
-  average = SERIESRESISTOR / average;
-
-  float steinhart;
-  steinhart = average / THERMISTORNOMINAL;          // (R/Ro)
-  steinhart = log(steinhart);                       // ln(R/Ro)
-  steinhart /= BCOEFFICIENT;                        // 1/B * ln(R/Ro)
-  steinhart += 1.0 / (TEMPERATURENOMINAL + 273.15); // + (1/To)
-  steinhart = 1.0 / steinhart;                      // Invert
-  steinhart -= 273.15;                              // convert to C
-
-  if(isDebug) Serial.println("Temperature reading complete: " + String(steinhart));
-  return steinhart;
+  float temp1 = altTemp->getTemperature1();
+  if (isDebug) Serial.println("Temperature: " + String(temp1 + iotClient->iotConfig.event_adjustment));
+  return temp1 + iotClient->iotConfig.event_adjustment;
 }
-
-IoTClient *iotClient;
-AltTemp *altTemp;
 
 void setup()
 {
@@ -70,7 +25,7 @@ void setup()
   config.event_place = "livingroom";
   config.event_type = "temperature";
   config.event_adjustment = 0.0;
-  config.event_publish_interval = 60000; // publish every 30 second.
+  config.event_publish_interval = 10000; // publish every 10 second.
 
   iotClient = new IoTClient(config, readEvent);
   iotClient->isDebug = isDebug;
@@ -83,9 +38,5 @@ void setup()
 void loop()
 {
   iotClient->loop();
-
-  float temp1 = altTemp->getTemperature1();
-  Serial.println("Alt. Temp: " + String(temp1));
-
   delay(1000);
 }

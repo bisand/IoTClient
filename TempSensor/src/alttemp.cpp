@@ -14,6 +14,40 @@ void AltTemp::setup()
   _tempData1.Rinf = _tempData1.R0 * exp(-_tempData1.beta / _tempData1.T0);
 }
 
+float AltTemp::getTemperature(){
+  uint8_t i;
+  float average;
+
+  // take N samples in a row, with a slight delay
+  for (i = 0; i < NUMSAMPLES; i++)
+  {
+    samples[i] = analogRead(THERMISTORPIN);
+    delay(10);
+  }
+
+  // average all the samples out
+  average = 0;
+  for (i = 0; i < NUMSAMPLES; i++)
+  {
+    average += samples[i];
+  }
+  average /= NUMSAMPLES;
+
+  // convert the value to resistance
+  average = 1023 / average - 1;
+  average = SERIESRESISTOR / average;
+
+  float steinhart;
+  steinhart = average / THERMISTORNOMINAL;          // (R/Ro)
+  steinhart = log(steinhart);                       // ln(R/Ro)
+  steinhart /= BCOEFFICIENT;                        // 1/B * ln(R/Ro)
+  steinhart += 1.0 / (TEMPERATURENOMINAL + 273.15); // + (1/To)
+  steinhart = 1.0 / steinhart;                      // Invert
+  steinhart -= 273.15;                              // convert to C
+
+  return steinhart;
+}
+
 float AltTemp::getTemperature1()
 {
   // Taken from:

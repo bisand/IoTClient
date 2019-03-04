@@ -32,7 +32,6 @@ private:
   ESP8266WebServer *_server;
 
   String clientId;
-  IoTConfig _iotConfig;
 
   long lastMsg = 0;
   float eventValue = 0.0;
@@ -58,6 +57,8 @@ private:
   void publishEvent();
 
 public:
+  IoTConfig iotConfig;
+
   IoTClient(IoTConfig &config, float (*readEvent)(void));
   IoTClient(float (*readEvent)(void));
   ~IoTClient();
