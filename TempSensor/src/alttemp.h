@@ -4,7 +4,7 @@ struct TempData
 {
     float Vin = 3.3;   // [V]
     float Rt = 10000;  // Resistor t [ohm]
-    float R0 = 9670;  // value of rct in T0 [ohm]
+    float R0 = 10000;  // value of rct in T0 [ohm]
     float T0 = 298.15; // use T0 in Kelvin [K]
     float Vout = 0.0;  // Vout in A0
     float Rout = 0.0;  // Rout in A0
