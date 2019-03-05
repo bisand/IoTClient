@@ -8,7 +8,7 @@ AltTemp *altTemp;
 
 float readEvent()
 {
-  float temp1 = altTemp->getTemperature1();
+  float temp1 = altTemp->getTemperature();
   if (isDebug) Serial.println("Temperature: " + String(temp1 + iotClient->iotConfig.event_adjustment));
   return temp1 + iotClient->iotConfig.event_adjustment;
 }
