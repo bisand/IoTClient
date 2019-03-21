@@ -1,0 +1,21 @@
+{
+  "name": "IoTClient-library",
+  "keywords": "IoT sensors",
+  "description": "Library for easily create IoT clients",
+  "repository":
+  {
+    "type": "git",
+    "url": "https://github.com/bisand/IoTClient.git"
+  },
+  "authors":
+  {
+    "name": "André Biseth",
+    "email": " ",
+    "url": " ",
+    "maintainer": true
+  },
+  "version": "0.1.0",
+  "license": "MIT",
+  "frameworks": "*",
+  "platforms": "*"
+}
