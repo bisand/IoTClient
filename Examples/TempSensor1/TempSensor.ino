@@ -25,7 +25,7 @@ void setup()
   config.event_place = "livingroom";
   config.event_type = "temperature";
   config.event_adjustment = 0.0;
-  config.event_publish_interval = 10000; // publish every 10 second.
+  config.event_publish_interval = 60000; // publish every 60 second.
 
   iotClient = new IoTClient(config, readEvent);
   iotClient->isDebug = isDebug;
